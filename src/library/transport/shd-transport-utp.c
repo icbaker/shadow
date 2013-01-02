@@ -7,6 +7,13 @@
 typedef void * SOCKOPTP;
 typedef const void * CSOCKOPTP;
 
+struct socket_state
+{
+    int total_sent;
+    int state;
+    UTPSocket* s;
+};
+
 int make_socket(const struct sockaddr *addr, socklen_t addrlen)
 {
     int s = socket(addr->sa_family, SOCK_DGRAM, 0);
@@ -45,6 +52,57 @@ void send_to(void *userdata, const byte *p, size_t len, const struct sockaddr *t
     send((int)*userdata, p, len, to, tolen);
 }
 
+void utp_read(void* socket, const byte* bytes, size_t count)
+{
+}
+
+void utp_write(void* socket, byte* bytes, size_t count)
+{
+    for (size_t i = 0; i < count; ++i) {
+        *bytes = rand();
+        ++bytes;
+    }
+    socket_state* s = (socket_state*)socket;
+    s->total_sent += count;
+    g_total_sent += count;
+}
+
+size_t utp_get_rb_size(void* socket)
+{
+    return 0;
+}
+
+void utp_state(void* socket, int state)
+{
+    utp_log("[%p] state: %d", socket, state);
+
+    socket_state* s = (socket_state*)socket;
+    s->state = state;
+    if (state == UTP_STATE_WRITABLE || state == UTP_STATE_CONNECT) {
+        if (UTP_Write(s->s, g_send_limit - s->total_sent)) {
+            UTP_Close(s->s);
+            s->s = NULL;
+        }
+    } else if (state == UTP_STATE_DESTROYING) {
+        size_t index = g_sockets.LookupElement(*s);
+        if (index != (size_t)-1) g_sockets.MoveUpLast(index);
+    }
+}
+
+void utp_error(void* socket, int errcode)
+{
+    socket_state* s = (socket_state*)socket;
+    printf("socket error: (%d) %s\n", errcode, strerror(errcode));
+    if (s->s) {
+        UTP_Close(s->s);
+        s->s = NULL;
+    }
+}
+
+void utp_overhead(void *socket, bool send, size_t count, int type)
+{
+}
+
 static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress) {
     g_assert(log);
 
@@ -54,9 +112,8 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_port = htons(port);
-    int sock = make_socket((const struct sockaddr*)&sin, sizeof(sin));
-
-    //sm.set_socket(sock);
+    int sock = malloc(sizeof(int));
+    sock = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
     char *portchr = strchr(dest, ':');
     *portchr = 0;
@@ -68,7 +125,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     sin.sin_port = htons(atoi(portchr));
 
     socket_state s;
-    s.s = UTP_Create(&send_to, &sm, (const struct sockaddr*)&sin, sizeof(sin));
+    s.s = UTP_Create(&send_to, &sock, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
     printf("creating socket %p\n", s.s);
@@ -81,7 +138,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
         &utp_error,
         &utp_overhead
     };
-    g_sockets.Append(s);
+    //g_sockets.Append(s);
     UTP_SetCallbacks(s.s, &utp_callbacks, &g_sockets[g_sockets.GetCount()-1]);
 
     printf("connecting socket %p\n", s.s);
