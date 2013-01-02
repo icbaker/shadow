@@ -106,12 +106,12 @@ void utp_overhead(void *socket, bool send, size_t count, int type)
 static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress) {
     g_assert(log);
 
-    sockaddr_in sin;
+    struct sockaddr_in sin;
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = INADDR_ANY;
-    sin.sin_port = htons(port);
+    sin.sin_port = htons(TRANSPORT_SERVER_PORT);
     int socketd = malloc(sizeof(int));
     socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
@@ -167,7 +167,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     }
 
     /* create our client and store our client socket */
-    TransportClient* tc = g_new0(EchoClient, 1);
+    TransportClient* tc = g_new0(TransportClient, 1);
     tc->socketd = socketd;
     tc->epolld = epolld;
     tc->serverIP = serverIPAddress;
@@ -175,4 +175,56 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     return tc;
 }
 
+static UTPServer* _echoutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddress) {
+    g_assert(log);
 
+    /* create the socket and get a socket descriptor */
+    gint socketd = socket(AF_INET, (SOCK_DGRAM | SOCK_NONBLOCK), 0);
+    if (socketd == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in socket");
+        return NULL;
+    }
+
+    /* setup the socket address info, client has outgoing connection to server */
+    struct sockaddr_in bindAddr;
+    memset(&bindAddr, 0, sizeof(bindAddr));
+    bindAddr.sin_family = AF_INET;
+    bindAddr.sin_addr.s_addr = bindIPAddress;
+    bindAddr.sin_port = htons(ECHO_SERVER_PORT);
+
+    /* bind the socket to the server port */
+    gint result = bind(socketd, (struct sockaddr *) &bindAddr, sizeof(bindAddr));
+    if (result == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
+        return NULL;
+    }
+
+    /* create an epoll so we can wait for IO events */
+    gint epolld = epoll_create(1);
+    if(epolld == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_create");
+        close(socketd);
+        return NULL;
+    }
+
+    /* setup the events we will watch for */
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = socketd;
+
+    /* start watching out socket */
+    result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
+    if(result == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+        close(epolld);
+        close(socketd);
+        return NULL;
+    }
+
+    /* create our server and store our server socket */
+    EchoServer* es = g_new0(EchoServer, 1);
+    es->listend = socketd;
+    es->epolld = epolld;
+    es->log = log;
+    return es;
+}
