@@ -112,8 +112,8 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = INADDR_ANY;
     sin.sin_port = htons(port);
-    int sock = malloc(sizeof(int));
-    sock = make_socket((const struct sockaddr*)&sin, sizeof(sin));
+    int socketd = malloc(sizeof(int));
+    socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
     char *portchr = strchr(dest, ':');
     *portchr = 0;
@@ -125,7 +125,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     sin.sin_port = htons(atoi(portchr));
 
     socket_state s;
-    s.s = UTP_Create(&send_to, &sock, (const struct sockaddr*)&sin, sizeof(sin));
+    s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
     printf("creating socket %p\n", s.s);
@@ -158,7 +158,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     ev.data.fd = socketd;
 
     /* start watching our socket */
-    result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
+    gint result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
     if(result == -1) {
         log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
         close(epolld);
@@ -174,3 +174,5 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     tc->log = log;
     return tc;
 }
+
+
