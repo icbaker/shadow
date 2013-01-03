@@ -230,11 +230,11 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     }
 
     /* create our server and store our server socket */
-    EchoServer* es = g_new0(EchoServer, 1);
-    es->listend = socketd;
-    es->epolld = epolld;
-    es->log = log;
-    return es;
+    TransportServer* ts = g_new0(TransportServer, 1);
+    ts->listend = socketd;
+    ts->epolld = epolld;
+    ts->log = log;
+    return ts;
 }
 
 TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
@@ -324,7 +324,7 @@ void transport_free(TransportUTP* tutp) {
     g_free(tutp);
 }
 
-static void _echoudp_clientReadable(TransportClient* tc, gint socketd) {
+static void _transportutp_clientReadable(TransportClient* tc, gint socketd) {
     tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
 
     if(!tc->is_done) {
@@ -338,9 +338,9 @@ static void _echoudp_clientReadable(TransportClient* tc, gint socketd) {
         if(tc->recv_offset >= tc->amount_sent) {
             tc->is_done = 1;
             if(memcmp(tc->sendBuffer, tc->recvBuffer, tc->amount_sent)) {
-                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent echo received!");
+                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent transmission received!");
             } else {
-                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received!");
+                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent transmission received!");
             }
 
             if(epoll_ctl(tc->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
@@ -349,7 +349,7 @@ static void _echoudp_clientReadable(TransportClient* tc, gint socketd) {
 
             close(socketd);
         } else {
-            tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "echo progress: %i of %i bytes", tc->recv_offset, tc->amount_sent);
+            tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "transmission progress: %i of %i bytes", tc->recv_offset, tc->amount_sent);
         }
     }
 }
@@ -403,7 +403,7 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
 
         socklen_t len = sizeof(server);
 
-        _echoudp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
+        _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
         ssize_t b = sendto(socketd, tc->sendBuffer, sizeof(tc->sendBuffer), 0, (struct sockaddr*) (&server), len);
         tc->sent_msg = 1;
@@ -451,5 +451,54 @@ static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
         if(epoll_ctl(ts->epolld, EPOLL_CTL_MOD, socketd, &ev) == -1) {
             ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
         }
+    }
+}
+
+void transportutp_ready(TransportUTP* tutp) {
+    g_assert(tutp);
+
+    if(tutp->client) {
+        struct epoll_event events[MAX_EVENTS];
+
+        int nfds = epoll_wait(tutp->client->epolld, events, MAX_EVENTS, 0);
+        if(nfds == -1) {
+            tutp->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in epoll_wait");
+        }
+
+        for(int i = 0; i < nfds; i++) {
+            if(events[i].events & EPOLLIN) {
+                _transportutp_clientReadable(tutp->client, events[i].data.fd);
+            }
+            if(!tutp->client->is_done && (events[i].events & EPOLLOUT)) {
+                _transportutp_clientWritable(tutp->client, events[i].data.fd);
+            }
+        }
+    }
+
+    if(tutp->server) {
+        struct epoll_event events[MAX_EVENTS];
+
+        int nfds = epoll_wait(tutp->server->epolld, events, MAX_EVENTS, 0);
+        if(nfds == -1) {
+            tutp->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in epoll_wait");
+        }
+
+        for(int i = 0; i < nfds; i++) {
+            if(events[i].events & EPOLLIN) {
+                _transportutp_serverReadable(tutp->server, events[i].data.fd);
+            }
+            if(events[i].events & EPOLLOUT) {
+                _transportutp_serverWritable(tutp->server, events[i].data.fd);
+            }
+        }
+
+        if(tutp->server->read_offset == tutp->server->write_offset) {
+            tutp->server->read_offset = 0;
+            tutp->server->write_offset = 0;
+        }
+
+        /* cant close sockd to client if we havent received everything yet.
+         * keep it simple and just keep the socket open for now.
+         */
     }
 }
