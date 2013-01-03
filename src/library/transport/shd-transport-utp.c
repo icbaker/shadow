@@ -421,3 +421,35 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
         }
     }
 }
+
+static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
+    ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
+
+    socklen_t len = sizeof(ts->address);
+
+    /* echo it back to the client on the same sd,
+     * also taking care of data that is still hanging around from previous reads. */
+    gint write_size = ts->read_offset - ts->write_offset;
+    if(write_size > 0) {
+        ssize_t bwrote = sendto(socketd, ts->transportBuffer + ts->write_offset, write_size, 0, (struct sockaddr*)&ts->address, len);
+        if(bwrote == 0) {
+            if(epoll_ctl(ts->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
+                ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+            }
+        } else if(bwrote > 0) {
+            ts->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server socket %i wrote %i bytes", socketd, (gint)bwrote);
+            ts->write_offset += bwrote;
+            write_size -= bwrote;
+        }
+    }
+
+    if(write_size == 0) {
+        /* stop trying to write */
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.fd = socketd;
+        if(epoll_ctl(ts->epolld, EPOLL_CTL_MOD, socketd, &ev) == -1) {
+            ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+        }
+    }
+}
