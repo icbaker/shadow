@@ -382,3 +382,11 @@ static void _transportutp_serverReadable(TransportServer* ts, gint socketd) {
         }
     }
 }
+
+/* fills buffer with size random characters */
+static void _transportutp_fillCharBuffer(gchar* buffer, gint size) {
+    for(gint i = 0; i < size; i++) {
+        gint n = rand() % 26;
+        buffer[i] = 'a' + n;
+    }
+}
