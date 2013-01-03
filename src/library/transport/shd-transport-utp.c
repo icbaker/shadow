@@ -62,7 +62,7 @@ void utp_write(void* socket, byte* bytes, size_t count)
         *bytes = rand();
         ++bytes;
     }
-    socket_state* s = (socket_state*)socket;
+    struct socket_state* s = (struct socket_state*)socket;
     s->total_sent += count;
     g_total_sent += count;
 }
@@ -76,7 +76,7 @@ void utp_state(void* socket, int state)
 {
     utp_log("[%p] state: %d", socket, state);
 
-    socket_state* s = (socket_state*)socket;
+    struct socket_state* s = (struct socket_state*)socket;
     s->state = state;
     if (state == UTP_STATE_WRITABLE || state == UTP_STATE_CONNECT) {
         if (UTP_Write(s->s, g_send_limit - s->total_sent)) {
@@ -91,7 +91,7 @@ void utp_state(void* socket, int state)
 
 void utp_error(void* socket, int errcode)
 {
-    socket_state* s = (socket_state*)socket;
+    struct socket_state* s = (struct socket_state*)socket;
     printf("socket error: (%d) %s\n", errcode, strerror(errcode));
     if (s->s) {
         UTP_Close(s->s);
@@ -110,27 +110,18 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = INADDR_ANY;
+    sin.sin_addr.s_addr = serverIPAddress;
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
     int socketd = malloc(sizeof(int));
     socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
-    char *portchr = strchr(dest, ':');
-    *portchr = 0;
-    portchr++;
-
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inet_addr(dest);
-    sin.sin_port = htons(atoi(portchr));
-
-    socket_state s;
+    struct socket_state s;
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
     printf("creating socket %p\n", s.s);
 
-    UTPFunctionTable utp_callbacks = {
+    struct UTPFunctionTable utp_callbacks = {
         &utp_read,
         &utp_write,
         &utp_get_rb_size,
@@ -175,8 +166,32 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     return tc;
 }
 
-static UTPServer* _echoutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddress) {
+static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddress) {
     g_assert(log);
+
+        struct sockaddr_in sin;
+
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_family = AF_INET;
+        sin.sin_addr.s_addr = INADDR_ANY;
+        sin.sin_port = htons(TRANSPORT_SERVER_PORT);
+        int socketd = malloc(sizeof(int));
+        socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
+
+        struct socket_state s;
+        s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
+        UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
+        s.state = 0;
+        printf("creating socket %p\n", s.s);
+
+        struct UTPFunctionTable utp_callbacks = {
+            &utp_read,
+            &utp_write,
+            &utp_get_rb_size,
+            &utp_state,
+            &utp_error,
+            &utp_overhead
+        };
 
     /* create the socket and get a socket descriptor */
     gint socketd = socket(AF_INET, (SOCK_DGRAM | SOCK_NONBLOCK), 0);
@@ -190,7 +205,7 @@ static UTPServer* _echoutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddre
     memset(&bindAddr, 0, sizeof(bindAddr));
     bindAddr.sin_family = AF_INET;
     bindAddr.sin_addr.s_addr = bindIPAddress;
-    bindAddr.sin_port = htons(ECHO_SERVER_PORT);
+    bindAddr.sin_port = htons(TRANSPORT_SERVER_PORT);
 
     /* bind the socket to the server port */
     gint result = bind(socketd, (struct sockaddr *) &bindAddr, sizeof(bindAddr));
