@@ -7,11 +7,14 @@
 typedef void * SOCKOPTP;
 typedef const void * CSOCKOPTP;
 
+int g_send_limit = 50 * 1024 * 1024;
+int g_total_sent = 0;
+
 struct socket_state
 {
     int total_sent;
     int state;
-    UTPSocket* s;
+    struct UTPSocket* s;
 };
 
 int make_socket(const struct sockaddr *addr, socklen_t addrlen)
@@ -22,7 +25,7 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
     if (bind(s, addr, addrlen) < 0) {
         char str[20];
         printf("UDP port bind failed %s: (%d) %s\n",
-               inet_ntop(addr->sa_family, (sockaddr*)addr, str, sizeof(str)), errno, strerror(errno));
+               inet_ntop(addr->sa_family, (struct sockaddr*)addr, str, sizeof(str)), errno, strerror(errno));
         closesocket(s);
         return -1;
     }
@@ -83,9 +86,6 @@ void utp_state(void* socket, int state)
             UTP_Close(s->s);
             s->s = NULL;
         }
-    } else if (state == UTP_STATE_DESTROYING) {
-        size_t index = g_sockets.LookupElement(*s);
-        if (index != (size_t)-1) g_sockets.MoveUpLast(index);
     }
 }
 
@@ -129,8 +129,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
         &utp_error,
         &utp_overhead
     };
-    //g_sockets.Append(s);
-    UTP_SetCallbacks(s.s, &utp_callbacks, &g_sockets[g_sockets.GetCount()-1]);
+    UTP_SetCallbacks(s.s, &utp_callbacks, &s);
 
     printf("connecting socket %p\n", s.s);
     UTP_Connect(s.s);
