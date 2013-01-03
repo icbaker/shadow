@@ -236,3 +236,74 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     es->log = log;
     return es;
 }
+
+TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
+    g_assert(log);
+
+    if(argc < 1) {
+        return NULL;
+    }
+
+    TransportUTP* tutp = g_new0(TransportUTP, 1);
+    tutp->log = log;
+
+    gchar* mode = argv[0];
+    gboolean isError = FALSE;
+
+    if(g_strncasecmp(mode, "client", 6) == 0)
+    {
+        if(argc < 2) {
+            isError = TRUE;
+        } else {
+            gchar* serverHostName = argv[1];
+            struct addrinfo* serverInfo;
+
+            if(getaddrinfo(serverHostName, NULL, NULL, &serverInfo) == -1) {
+                log(G_LOG_LEVEL_WARNING, __FUNCTION__, "unable to create client: error in getaddrinfo");
+                isError = TRUE;
+            } else {
+                in_addr_t serverIP = ((struct sockaddr_in*)(serverInfo->ai_addr))->sin_addr.s_addr;
+                tutp->client = _transportutp_newClient(log, serverIP);
+            }
+            freeaddrinfo(serverInfo);
+        }
+    }
+    else if (g_strncasecmp(mode, "server", 6) == 0)
+    {
+        char myHostName[128];
+
+        gint result = gethostname(myHostName, 128);
+        if(result == 0) {
+            struct addrinfo* myInfo;
+
+            if(getaddrinfo(myHostName, NULL, NULL, &myInfo) == -1) {
+                log(G_LOG_LEVEL_WARNING, __FUNCTION__, "unable to create server: error in getaddrinfo");
+                isError = TRUE;
+            } else {
+                in_addr_t myIP = ((struct sockaddr_in*)(myInfo->ai_addr))->sin_addr.s_addr;
+                log(G_LOG_LEVEL_INFO, __FUNCTION__, "binding to %s", inet_ntoa((struct in_addr){myIP}));
+                tutp->server = _transportutp_newServer(log, myIP);
+            }
+            freeaddrinfo(myInfo);
+        } else {
+            log(G_LOG_LEVEL_WARNING, __FUNCTION__, "unable to create server: error in gethostname");
+            isError = TRUE;
+        }
+    }
+    else if (g_strncasecmp(mode, "loopback", 8) == 0)
+    {
+        in_addr_t serverIP = htonl(INADDR_LOOPBACK);
+        tutp->server = _transportutp_newServer(log, serverIP);
+        tutp->client = _transportutp_newClient(log, serverIP);
+    }
+    else {
+        isError = TRUE;
+    }
+
+    if(isError) {
+        g_free(tutp);
+        return NULL;
+    }
+
+    return tutp;
+}
