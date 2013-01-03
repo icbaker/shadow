@@ -390,3 +390,34 @@ static void _transportutp_fillCharBuffer(gchar* buffer, gint size) {
         buffer[i] = 'a' + n;
     }
 }
+
+static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
+    if(!tc->sent_msg) {
+        tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to socket %i", socketd);
+
+        struct sockaddr_in server;
+        memset(&server, 0, sizeof(server));
+        server.sin_family = AF_INET;
+        server.sin_addr.s_addr = tc->serverIP;
+        server.sin_port = htons(TRANSPORT_SERVER_PORT);
+
+        socklen_t len = sizeof(server);
+
+        _echoudp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
+
+        ssize_t b = sendto(socketd, tc->sendBuffer, sizeof(tc->sendBuffer), 0, (struct sockaddr*) (&server), len);
+        tc->sent_msg = 1;
+        tc->amount_sent += b;
+        tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i wrote %i bytes: '%s'", socketd, b, tc->sendBuffer);
+
+        if(tc->amount_sent >= sizeof(tc->sendBuffer)) {
+            /* we sent everything, so stop trying to write */
+            struct epoll_event ev;
+            ev.events = EPOLLIN;
+            ev.data.fd = socketd;
+            if(epoll_ctl(tc->epolld, EPOLL_CTL_MOD, socketd, &ev) == -1) {
+                tc->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+            }
+        }
+    }
+}
