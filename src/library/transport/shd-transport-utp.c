@@ -324,32 +324,61 @@ void transport_free(TransportUTP* tutp) {
     g_free(tutp);
 }
 
-static void _echoudp_clientReadable(TransportClient* ec, gint socketd) {
-    ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
+static void _echoudp_clientReadable(TransportClient* tc, gint socketd) {
+    tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
 
-    if(!ec->is_done) {
+    if(!tc->is_done) {
         ssize_t b = 0;
-        while(ec->amount_sent-ec->recv_offset > 0 &&
-                (b = recvfrom(socketd, ec->recvBuffer+ec->recv_offset, ec->amount_sent-ec->recv_offset, 0, NULL, NULL)) > 0) {
-            ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i read %i bytes: '%s'", socketd, b, ec->recvBuffer+ec->recv_offset);
-            ec->recv_offset += b;
+        while(tc->amount_sent-tc->recv_offset > 0 &&
+                (b = recvfrom(socketd, tc->recvBuffer+tc->recv_offset, tc->amount_sent-tc->recv_offset, 0, NULL, NULL)) > 0) {
+            tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i read %i bytes: '%s'", socketd, b, tc->recvBuffer+tc->recv_offset);
+            tc->recv_offset += b;
         }
 
-        if(ec->recv_offset >= ec->amount_sent) {
-            ec->is_done = 1;
-            if(memcmp(ec->sendBuffer, ec->recvBuffer, ec->amount_sent)) {
-                ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent echo received!");
+        if(tc->recv_offset >= tc->amount_sent) {
+            tc->is_done = 1;
+            if(memcmp(tc->sendBuffer, tc->recvBuffer, tc->amount_sent)) {
+                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent echo received!");
             } else {
-                ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received!");
+                tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received!");
             }
 
-            if(epoll_ctl(ec->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
-                ec->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+            if(epoll_ctl(tc->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
+                tc->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
             }
 
             close(socketd);
         } else {
-            ec->log(G_LOG_LEVEL_INFO, __FUNCTION__, "echo progress: %i of %i bytes", ec->recv_offset, ec->amount_sent);
+            tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "echo progress: %i of %i bytes", tc->recv_offset, tc->amount_sent);
+        }
+    }
+}
+
+static void _transportutp_serverReadable(TransportServer* ts, gint socketd) {
+    ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
+
+    socklen_t len = sizeof(ts->address);
+
+    /* read all data available */
+    gint read_size = BUFFERSIZE - ts->read_offset;
+    if(read_size > 0) {
+        ssize_t bread = recvfrom(socketd, ts->transportBuffer + ts->read_offset, read_size, 0, (struct sockaddr*)&ts->address, &len);
+
+        /* if we read, start listening for when we can write */
+        if(bread == 0) {
+            close(ts->listend);
+            close(socketd);
+        } else if(bread > 0) {
+            ts->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server socket %i read %i bytes", socketd, (gint)bread);
+            ts->read_offset += bread;
+            read_size -= bread;
+
+            struct epoll_event ev;
+            ev.events = EPOLLIN|EPOLLOUT;
+            ev.data.fd = socketd;
+            if(epoll_ctl(ts->epolld, EPOLL_CTL_MOD, socketd, &ev) == -1) {
+                ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+            }
         }
     }
 }
