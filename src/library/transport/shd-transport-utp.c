@@ -173,10 +173,17 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
 
         memset(&sin, 0, sizeof(sin));
         sin.sin_family = AF_INET;
-        sin.sin_addr.s_addr = INADDR_ANY;
+        sin.sin_addr.s_addr = bindIPAddress;
         sin.sin_port = htons(TRANSPORT_SERVER_PORT);
         int socketd = malloc(sizeof(int));
         socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
+
+        /* bind the socket to the server port */
+        gint result = bind(socketd, (struct sockaddr *) &sin, sizeof(sin));
+        if (result == -1) {
+            log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
+            return NULL;
+        }
 
         struct socket_state s;
         s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
@@ -197,20 +204,6 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     gint socketd = socket(AF_INET, (SOCK_DGRAM | SOCK_NONBLOCK), 0);
     if (socketd == -1) {
         log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in socket");
-        return NULL;
-    }
-
-    /* setup the socket address info, client has outgoing connection to server */
-    struct sockaddr_in bindAddr;
-    memset(&bindAddr, 0, sizeof(bindAddr));
-    bindAddr.sin_family = AF_INET;
-    bindAddr.sin_addr.s_addr = bindIPAddress;
-    bindAddr.sin_port = htons(TRANSPORT_SERVER_PORT);
-
-    /* bind the socket to the server port */
-    gint result = bind(socketd, (struct sockaddr *) &bindAddr, sizeof(bindAddr));
-    if (result == -1) {
-        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
         return NULL;
     }
 
