@@ -307,3 +307,49 @@ TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
 
     return tutp;
 }
+
+void transport_free(TransportUTP* tutp) {
+    g_assert(tutp);
+
+    if(tutp->client) {
+        epoll_ctl(tutp->client->epolld, EPOLL_CTL_DEL, tutp->client->socketd, NULL);
+        g_free(tutp->client);
+    }
+
+    if(tutp->server) {
+        epoll_ctl(tutp->server->epolld, EPOLL_CTL_DEL, tutp->server->listend, NULL);
+        g_free(tutp->server);
+    }
+
+    g_free(tutp);
+}
+
+static void _echoudp_clientReadable(TransportClient* ec, gint socketd) {
+    ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
+
+    if(!ec->is_done) {
+        ssize_t b = 0;
+        while(ec->amount_sent-ec->recv_offset > 0 &&
+                (b = recvfrom(socketd, ec->recvBuffer+ec->recv_offset, ec->amount_sent-ec->recv_offset, 0, NULL, NULL)) > 0) {
+            ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i read %i bytes: '%s'", socketd, b, ec->recvBuffer+ec->recv_offset);
+            ec->recv_offset += b;
+        }
+
+        if(ec->recv_offset >= ec->amount_sent) {
+            ec->is_done = 1;
+            if(memcmp(ec->sendBuffer, ec->recvBuffer, ec->amount_sent)) {
+                ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent echo received!");
+            } else {
+                ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received!");
+            }
+
+            if(epoll_ctl(ec->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
+                ec->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
+            }
+
+            close(socketd);
+        } else {
+            ec->log(G_LOG_LEVEL_INFO, __FUNCTION__, "echo progress: %i of %i bytes", ec->recv_offset, ec->amount_sent);
+        }
+    }
+}
