@@ -142,6 +142,11 @@ def main():
         help="do not build the built-in torrent plug-in (P2P file transfers)", 
         action="store_true", dest="disable_torrent",
         default=False)
+
+    parser_build.add_argument('--disable-plugin-transport',
+        help="do not build the custom transport plug-in (Transport protocol testing)",
+        action="store_true", dest="disable_transport",
+        default=False)
     
     parser_build.add_argument('--enable-memory-tracker', 
         help="preload malloc and free and track nodes memory usage (experimental!)", 
