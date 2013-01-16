@@ -254,7 +254,7 @@ def build(args):
     if retcode == 0:
         # call make, wait for it to finish
         log("calling \'make\'")
-        retcode = subprocess.call(["make"])
+        retcode = subprocess.call(["make","VERBOSE=1"])
         log("make returned " + str(retcode))
         if retcode == 0: log("now run \'python setup.py install\'")
         else: log("ERROR! Non-zero return code from make.")

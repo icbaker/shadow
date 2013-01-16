@@ -2,7 +2,6 @@
 
 #include "shd-transport.h"
 #include "utp.h"
-#include "utp_utils.h"
 
 typedef void * SOCKOPTP;
 typedef const void * CSOCKOPTP;
@@ -47,12 +46,8 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
     return s;
 }
 
-void send(int socket, const byte *p, size_t len, const struct sockaddr *to, socklen_t tolen) {
-    sendto(socket, (char*)p, len, 0, (struct sockaddr*)to, tolen);
-}
-
 void send_to(void *userdata, const byte *p, size_t len, const struct sockaddr *to, socklen_t tolen) {
-    send((int)*userdata, p, len, to, tolen);
+    sendto(*(int*)userdata, (char*)p, len, 0, (struct sockaddr*)to, tolen);
 }
 
 void utp_read(void* socket, const byte* bytes, size_t count)
@@ -198,13 +193,6 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
             &utp_error,
             &utp_overhead
         };
-
-    /* create the socket and get a socket descriptor */
-    gint socketd = socket(AF_INET, (SOCK_DGRAM | SOCK_NONBLOCK), 0);
-    if (socketd == -1) {
-        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in socket");
-        return NULL;
-    }
 
     /* create an epoll so we can wait for IO events */
     gint epolld = epoll_create(1);
