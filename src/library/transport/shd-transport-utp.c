@@ -72,8 +72,6 @@ size_t utp_get_rb_size(void* socket)
 
 void utp_state(void* socket, int state)
 {
-    utp_log("[%p] state: %d", socket, state);
-
     struct socket_state* s = (struct socket_state*)socket;
     s->state = state;
     if (state == UTP_STATE_WRITABLE || state == UTP_STATE_CONNECT) {
@@ -107,8 +105,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = serverIPAddress;
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
-    int socketd = malloc(sizeof(int));
-    socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
+    int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
     struct socket_state s;
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
@@ -163,36 +160,39 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
 static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddress) {
     g_assert(log);
 
-        struct sockaddr_in sin;
+    struct sockaddr_in sin;
 
-        memset(&sin, 0, sizeof(sin));
-        sin.sin_family = AF_INET;
-        sin.sin_addr.s_addr = bindIPAddress;
-        sin.sin_port = htons(TRANSPORT_SERVER_PORT);
-        int socketd = malloc(sizeof(int));
-        socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = bindIPAddress;
+    sin.sin_port = htons(TRANSPORT_SERVER_PORT);
+    int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
-        /* bind the socket to the server port */
-        gint result = bind(socketd, (struct sockaddr *) &sin, sizeof(sin));
-        if (result == -1) {
-            log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
-            return NULL;
-        }
+    /* bind the socket to the server port */
+    gint result = bind(socketd, (struct sockaddr *) &sin, sizeof(sin));
+    if (result == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
+        return NULL;
+    }
 
-        struct socket_state s;
-        s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
-        UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
-        s.state = 0;
-        printf("creating socket %p\n", s.s);
+    struct socket_state s;
+    s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
+    UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
+    s.state = 0;
+    printf("creating socket %p\n", s.s);
 
-        struct UTPFunctionTable utp_callbacks = {
-            &utp_read,
-            &utp_write,
-            &utp_get_rb_size,
-            &utp_state,
-            &utp_error,
-            &utp_overhead
-        };
+    struct UTPFunctionTable utp_callbacks = {
+        &utp_read,
+        &utp_write,
+        &utp_get_rb_size,
+        &utp_state,
+        &utp_error,
+        &utp_overhead
+    };
+    UTP_SetCallbacks(s.s, &utp_callbacks, &s);
+
+    printf("connecting socket %p\n", s.s);
+    UTP_Connect(s.s);
 
     /* create an epoll so we can wait for IO events */
     gint epolld = epoll_create(1);
