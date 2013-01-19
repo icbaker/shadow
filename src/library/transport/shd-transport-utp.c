@@ -25,7 +25,7 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
         char str[20];
         printf("UDP port bind failed %s: (%d) %s\n",
                inet_ntop(addr->sa_family, (struct sockaddr*)addr, str, sizeof(str)), errno, strerror(errno));
-        closesocket(s);
+        close(s);
         return -1;
     }
 
