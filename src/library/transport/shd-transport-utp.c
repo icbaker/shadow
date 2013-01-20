@@ -168,13 +168,6 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
     int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
-    /* bind the socket to the server port */
-    gint result = bind(socketd, (struct sockaddr *) &sin, sizeof(sin));
-    if (result == -1) {
-        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "error in bind");
-        return NULL;
-    }
-
     struct socket_state s;
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
@@ -208,7 +201,7 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     ev.data.fd = socketd;
 
     /* start watching out socket */
-    result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
+    gint result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
     if(result == -1) {
         log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
         close(epolld);
