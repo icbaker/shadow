@@ -237,6 +237,10 @@ def build(args):
     # hack to make passing args to CMAKE work... doesnt seem to like the first arg
     args.extra_includes.insert(0, "./")
     args.extra_libraries.insert(0, "./")
+   
+    # Add libutp libraries
+    args.extra_includes.append("/home/ian/Documents/Cambridge/CompSci/Project/libutp");
+    args.extra_libraries.append("/home/ian/Documents/Cambridge/CompSci/Project/libutp");
     
     # add extra library and include directories as absolution paths
     make_paths_absolute(args.extra_includes)
