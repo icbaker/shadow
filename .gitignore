@@ -1,3 +1,4 @@
+*.swp
 /build
 src/library/scallion/scallion-registration.c
 src/library/scallion/tor_externs.h
