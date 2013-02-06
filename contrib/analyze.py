@@ -254,6 +254,11 @@ def parse(args):
                     ttfb['p2p'].append(fbtime)
                     ttlb['p2p'].append(lbtime)
 
+                #echo plug-in stats
+                elif parts[3]=="[echoplugin-message]":
+                   
+
+
                 # shadow core stats
                 if parts[5] == "[tracker_heartbeat]":
                     cpu_percent = float(parts[8])
