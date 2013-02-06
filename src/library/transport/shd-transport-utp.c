@@ -21,14 +21,6 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
     int s = socket(addr->sa_family, SOCK_DGRAM, 0);
     if (s == -1) return s;
 
-    if (bind(s, addr, addrlen) < 0) {
-        char str[20];
-        printf("UDP port bind failed %s: (%d) %s\n",
-               inet_ntop(addr->sa_family, (struct sockaddr*)addr, str, sizeof(str)), errno, strerror(errno));
-        close(s);
-        return -1;
-    }
-
     // Mark to hold a couple of megabytes
     int size = 2 * 1024 * 1024;
 
@@ -111,7 +103,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
-    printf("creating socket %p\n", s.s);
+    printf("Client: creating UTP socket %p\n", s.s);
 
     struct UTPFunctionTable utp_callbacks = {
         &utp_read,
@@ -123,7 +115,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     };
     UTP_SetCallbacks(s.s, &utp_callbacks, &s);
 
-    printf("connecting socket %p\n", s.s);
+    printf("Client: connecting UTP socket %p\n", s.s);
     UTP_Connect(s.s);
 
     /* create an epoll so we can wait for IO events */
@@ -168,11 +160,19 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
     int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
+    if (bind(socketd, &sin, sizeof(sin)) < 0) {
+        char str[20];
+        printf("UDP port bind failed %s: (%d) %s\n",
+               inet_ntop(&sin.sin_family, (struct sockaddr*)&sin, str, sizeof(str)), errno, strerror(errno));
+        close(socketd);
+        return -1;
+    }
+
     struct socket_state s;
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
-    printf("creating socket %p\n", s.s);
+    printf("Server: creating UTP socket %p\n", s.s);
 
     struct UTPFunctionTable utp_callbacks = {
         &utp_read,
@@ -184,7 +184,7 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     };
     UTP_SetCallbacks(s.s, &utp_callbacks, &s);
 
-    printf("connecting socket %p\n", s.s);
+    printf("Server: connecting UTP socket %p\n", s.s);
     UTP_Connect(s.s);
 
     /* create an epoll so we can wait for IO events */
