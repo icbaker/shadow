@@ -21,6 +21,18 @@
 
 #include "shd-echo.h"
 
+static struct timespec timeDifference(struct timespec start, struct timespec end) {
+    struct timespec difference;
+    difference.tv_sec = end.tv_sec - start.tv_sec;
+    difference.tv_nsec = end.tv_nsec - start.tv_nsec;
+
+    while(difference.tv_nsec < 0) {
+        difference.tv_sec--;
+        difference.tv_nsec += 1000000000;
+    }
+    return difference;
+}
+
 static EchoClient* _echotcp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress) {
 	g_assert(log);
 
@@ -302,7 +314,10 @@ static void _echotcp_clientReadable(EchoClient* ec, gint socketd) {
 			if(memcmp(ec->sendBuffer, ec->recvBuffer, ec->amount_sent)) {
 				ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent echo received!");
 			} else {
-				ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received!");
+			    struct timespec curr_time;
+			    clock_gettime(CLOCK_REALTIME, &curr_time);
+			    struct timespec rtt = timeDifference(ec->start_time, curr_time);
+				ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received! RTT: %d.%3ds",rtt.tv_sec, rtt.tv_nsec/1000000);
 			}
 
 			if(epoll_ctl(ec->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
@@ -370,10 +385,11 @@ static void _echotcp_fillCharBuffer(gchar* buffer, gint size) {
 
 static void _echotcp_clientWritable(EchoClient* ec, gint socketd) {
 	if(!ec->sent_msg) {
-		ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to socket %i", socketd);
+		ec->log(G_LOG_LEVEL_INFO, __FUNCTION__, "trying to write to socket %i", socketd);
 
 		_echotcp_fillCharBuffer(ec->sendBuffer, sizeof(ec->sendBuffer)-1);
 
+		clock_gettime(CLOCK_REALTIME, &ec->start_time);
 		ssize_t b = send(socketd, ec->sendBuffer, sizeof(ec->sendBuffer), 0);
 		ec->sent_msg = 1;
 		ec->amount_sent += b;

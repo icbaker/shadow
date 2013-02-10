@@ -81,6 +81,7 @@ struct _EchoClient {
 	gint sent_msg;
 	gint amount_sent;
 	gint is_done;
+	struct timespec start_time;
 };
 
 /**
