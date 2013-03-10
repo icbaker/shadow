@@ -38,7 +38,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define BUFFERSIZE 20000
+#define BUFFERSIZE 200000000
 #define ECHO_SERVER_PORT 9999
 #define MAX_EVENTS 10
 
@@ -82,6 +82,7 @@ struct _EchoClient {
 	gint amount_sent;
 	gint is_done;
 	struct timespec start_time;
+	gint echoSize;
 };
 
 /**

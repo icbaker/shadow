@@ -182,7 +182,7 @@ def parse(args):
     if not os.path.exists(outputpath): os.makedirs(outputpath)
 
     # will store the perf data we extract, keyed by client type
-    ttfb = {'web': [], 'bulk': [], 'im': [], 'p2p': [], 'perf50k' : [], 'perf1m' : [], 'perf5m' : [], 'other' : []}
+    ttfb = {'web': [], 'bulk': [], 'im': [], 'p2p': [], 'perf50k' : [], 'perf1m' : [], 'perf5m' : [], 'other' : [], 'echotcp' : []}
     ttlb = {'web': [], 'bulk': [], 'im': [], 'p2p': [], 'perf50k' : [], 'perf1m' : [], 'perf5m' : [], 'other' : []}
 
     # will store the throughput data (total bytes over time)
@@ -255,9 +255,10 @@ def parse(args):
                     ttlb['p2p'].append(lbtime)
 
                 #echo plug-in stats
-                elif parts[3]=="[echoplugin-message]":
-                   
-
+                elif parts[3] == "[echoplugin-message]" and parts[6] == "[consistent-echo-received!]":
+                    fbtime = float(parts[11])
+                    bytes = float(parts[8])
+                    ttfb['echotcp'].append(fbtime)
 
                 # shadow core stats
                 if parts[5] == "[tracker_heartbeat]":

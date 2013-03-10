@@ -33,8 +33,13 @@ static struct timespec timeDifference(struct timespec start, struct timespec end
     return difference;
 }
 
-static EchoClient* _echotcp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress) {
+static EchoClient* _echotcp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress, gint echoSize) {
 	g_assert(log);
+
+	if (echoSize > BUFFERSIZE) {
+	    log(G_LOG_LEVEL_WARNING, __FUNCTION__, "echoSize larger than buffer, defaulting to BUFFERSIZE");
+	    echoSize = BUFFERSIZE;
+	}
 
 	/* create the socket and get a socket descriptor */
 	gint socketd = socket(AF_INET, (SOCK_STREAM | SOCK_NONBLOCK), 0);
@@ -85,6 +90,7 @@ static EchoClient* _echotcp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAd
 	ec->epolld = epolld;
 	ec->serverIP = serverIPAddress;
 	ec->log = log;
+	ec->echoSize = echoSize;
 	return ec;
 }
 
@@ -233,7 +239,11 @@ EchoTCP* echotcp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
 				isError = TRUE;
 			} else {
 				in_addr_t serverIP = ((struct sockaddr_in*)(serverInfo->ai_addr))->sin_addr.s_addr;
-				etcp->client = _echotcp_newClient(log, serverIP);
+				gint echoSize = BUFFERSIZE;
+				if(argc > 2) {
+				    echoSize = atoi(argv[2]);
+				}
+				etcp->client = _echotcp_newClient(log, serverIP, echoSize);
 			}
 			freeaddrinfo(serverInfo);
 		}
@@ -264,7 +274,7 @@ EchoTCP* echotcp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
 	{
 		in_addr_t serverIP = htonl(INADDR_LOOPBACK);
 		etcp->server = _echotcp_newServer(log, serverIP);
-		etcp->client = _echotcp_newClient(log, serverIP);
+		etcp->client = _echotcp_newClient(log, serverIP, BUFFERSIZE);
 	}
 	else if (g_strncasecmp(mode, "socketpair", 10) == 0)
 	{
@@ -317,7 +327,7 @@ static void _echotcp_clientReadable(EchoClient* ec, gint socketd) {
 			    struct timespec curr_time;
 			    clock_gettime(CLOCK_REALTIME, &curr_time);
 			    struct timespec rtt = timeDifference(ec->start_time, curr_time);
-				ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent echo received! RTT: %d.%3ds",rtt.tv_sec, rtt.tv_nsec/1000000);
+				ec->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "[consistent-echo-received!] size: %d bytes, RTT: %d.%03d seconds",ec->echoSize, rtt.tv_sec, rtt.tv_nsec/1000000);
 			}
 
 			if(epoll_ctl(ec->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
@@ -387,15 +397,15 @@ static void _echotcp_clientWritable(EchoClient* ec, gint socketd) {
 	if(!ec->sent_msg) {
 		ec->log(G_LOG_LEVEL_INFO, __FUNCTION__, "trying to write to socket %i", socketd);
 
-		_echotcp_fillCharBuffer(ec->sendBuffer, sizeof(ec->sendBuffer)-1);
+		_echotcp_fillCharBuffer(ec->sendBuffer, ec->echoSize);
 
 		clock_gettime(CLOCK_REALTIME, &ec->start_time);
-		ssize_t b = send(socketd, ec->sendBuffer, sizeof(ec->sendBuffer), 0);
+		ssize_t b = send(socketd, ec->sendBuffer, ec->echoSize, 0);
 		ec->sent_msg = 1;
 		ec->amount_sent += b;
 		ec->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i wrote %i bytes: '%s'", socketd, b, ec->sendBuffer);
 
-		if(ec->amount_sent >= sizeof(ec->sendBuffer)) {
+		if(ec->amount_sent >= ec->echoSize) {
 			/* we sent everything, so stop trying to write */
 			struct epoll_event ev;
 			ev.events = EPOLLIN;
