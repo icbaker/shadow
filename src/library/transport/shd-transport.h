@@ -65,7 +65,7 @@ struct _TransportServer {
     gint socketd;
     struct socket_state utpSockState;
     struct sockaddr_in address;
-    gchar transportBuffer[BUFFERSIZE];
+    gchar echoBuffer[BUFFERSIZE];
     gint read_offset;
     gint write_offset;
 };

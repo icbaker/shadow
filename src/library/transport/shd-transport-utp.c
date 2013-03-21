@@ -328,7 +328,7 @@ static void _transportutp_serverReadable(TransportServer* ts, gint socketd) {
     /* read all data available */
     gint read_size = BUFFERSIZE - ts->read_offset;
     if(read_size > 0) {
-        ssize_t bread = recvfrom(socketd, ts->transportBuffer + ts->read_offset, read_size, 0, (struct sockaddr*)&ts->address, &len);
+        ssize_t bread = recvfrom(socketd, ts->echoBuffer + ts->read_offset, read_size, 0, (struct sockaddr*)&ts->address, &len);
 
         /* if we read, start listening for when we can write */
         if(bread == 0) {
