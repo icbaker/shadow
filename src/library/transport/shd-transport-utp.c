@@ -24,13 +24,6 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
     // Mark to hold a couple of megabytes
     int size = 2 * 1024 * 1024;
 
-    if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, (CSOCKOPTP)&size, sizeof(size)) < 0) {
-        printf("UDP setsockopt(SO_RCVBUF, %d) failed: %d %s\n", size, errno, strerror(errno));
-    }
-    if (setsockopt(s, SOL_SOCKET, SO_SNDBUF, (CSOCKOPTP)&size, sizeof(size)) < 0) {
-        printf("UDP setsockopt(SO_SNDBUF, %d) failed: %d %s\n", size, errno, strerror(errno));
-    }
-
     // make socket non blocking
     int flags = fcntl(s, F_GETFL, 0);
     fcntl(s, F_SETFL, flags | O_NONBLOCK);
