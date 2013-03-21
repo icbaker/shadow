@@ -50,8 +50,15 @@ size_t utp_get_rb_size(void* socket)
 
 void utp_state(void* socket, int state)
 {
-    struct socket_state* s = (struct socket_state*)socket;
-    s->state = state;
+    TransportUTP* tutp = (TransportUTP*) socket;
+    struct socket_state* s;
+    if (tutp->client) {
+        tutp->client->utpSockState->state = state;
+        s = tutp->client->utpSockState;
+    } else if (tutp->server) {
+        tutp->server->utpSockState->state = state;
+        s = tutp->server->utpSockState;
+    }
     if (state == UTP_STATE_WRITABLE || state == UTP_STATE_CONNECT) {
         if (UTP_Write(s->s, g_send_limit - s->total_sent)) {
             UTP_Close(s->s);
