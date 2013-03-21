@@ -45,7 +45,14 @@ void utp_write(void* socket, byte* bytes, size_t count)
 
 size_t utp_get_rb_size(void* socket)
 {
-    return 0;
+    TransportUTP* tutp = (TransportUTP*) socket;
+    if (tutp->client) {
+        return tutp->client->recv_offset;
+    } else if (tutp->server) {
+        return tutp->server->read_offset;
+    } else {
+        return 0;
+    }
 }
 
 void utp_state(void* socket, int state)
