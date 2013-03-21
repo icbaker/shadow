@@ -9,13 +9,6 @@ typedef const void * CSOCKOPTP;
 int g_send_limit = 50 * 1024 * 1024;
 int g_total_sent = 0;
 
-struct socket_state
-{
-    int total_sent;
-    int state;
-    struct UTPSocket* s;
-};
-
 int make_socket(const struct sockaddr *addr, socklen_t addrlen)
 {
     int s = socket(addr->sa_family, SOCK_DGRAM, 0);

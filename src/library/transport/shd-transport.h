@@ -22,6 +22,13 @@
 #define TRANSPORT_SERVER_PORT 9999
 #define MAX_EVENTS 10
 
+struct socket_state
+{
+    int total_sent;
+    int state;
+    struct UTPSocket* s;
+};
+
 /**
  * Protocol modes this transport module supports.
  */
@@ -38,6 +45,7 @@ struct _TransportClient {
     in_addr_t serverIP;
     gint epolld;
     gint socketd;
+    struct socket_state utpSockState;
     gchar sendBuffer[BUFFERSIZE];
     gchar recvBuffer[BUFFERSIZE];
     gint recv_offset;
@@ -55,6 +63,7 @@ struct _TransportServer {
     gint epolld;
     gint listend;
     gint socketd;
+    struct socket_state utpSockState;
     struct sockaddr_in address;
     gchar transportBuffer[BUFFERSIZE];
     gint read_offset;
