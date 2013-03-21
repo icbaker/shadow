@@ -371,7 +371,7 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
 
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
-        ssize_t b = sendto(socketd, tc->sendBuffer, sizeof(tc->sendBuffer), 0, (struct sockaddr*) (&server), len);
+        UTP_Write(tc->utpSockState->s, sizeof(tc->sendBuffer));
         tc->sent_msg = 1;
         tc->amount_sent += b;
         tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i wrote %i bytes: '%s'", socketd, b, tc->sendBuffer);
@@ -397,7 +397,7 @@ static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
      * also taking care of data that is still hanging around from previous reads. */
     gint write_size = ts->read_offset - ts->write_offset;
     if(write_size > 0) {
-        ssize_t bwrote = sendto(socketd, ts->transportBuffer + ts->write_offset, write_size, 0, (struct sockaddr*)&ts->address, len);
+        UTP_Write(ts->utpSockState->s, write_size);
         if(bwrote == 0) {
             if(epoll_ctl(ts->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
                 ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
