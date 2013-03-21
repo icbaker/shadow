@@ -7,7 +7,6 @@ typedef void * SOCKOPTP;
 typedef const void * CSOCKOPTP;
 
 int g_send_limit = 50 * 1024 * 1024;
-int g_total_sent = 0;
 
 int make_socket(const struct sockaddr *addr, socklen_t addrlen)
 {
@@ -34,13 +33,14 @@ void utp_read(void* socket, const byte* bytes, size_t count)
 
 void utp_write(void* socket, byte* bytes, size_t count)
 {
-    for (size_t i = 0; i < count; ++i) {
-        *bytes = rand();
-        ++bytes;
+    TransportUTP* tutp = (TransportUTP*) socket;
+    if (tutp->client) {
+        bytes = tutp->client->sendBuffer + tutp->client->utpSockState->total_sent;
+        tutp->client->utpSockState->total_sent += count;
+    } else if (tutp->server) {
+        bytes = tutp->server->echoBuffer + tutp->server->write_offset;
+        tutp->server->write_offset += count;
     }
-    struct socket_state* s = (struct socket_state*)socket;
-    s->total_sent += count;
-    g_total_sent += count;
 }
 
 size_t utp_get_rb_size(void* socket)

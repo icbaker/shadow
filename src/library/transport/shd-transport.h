@@ -50,7 +50,6 @@ struct _TransportClient {
     gchar recvBuffer[BUFFERSIZE];
     gint recv_offset;
     gint sent_msg;
-    gint amount_sent;
     gint is_done;
 };
 
