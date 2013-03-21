@@ -288,7 +288,7 @@ TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
     return tutp;
 }
 
-void transport_free(TransportUTP* tutp) {
+void transportutp_free(TransportUTP* tutp) {
     g_assert(tutp);
 
     if(tutp->client) {
