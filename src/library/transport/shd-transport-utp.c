@@ -76,12 +76,16 @@ void utp_state(void* socket, int state)
 
 void utp_error(void* socket, int errcode)
 {
-    struct socket_state* s = (struct socket_state*)socket;
+    TransportUTP* tutp = (TransportUTP*) socket;
     printf("socket error: (%d) %s\n", errcode, strerror(errcode));
-    if (s->s) {
-        UTP_Close(s->s);
-        s->s = NULL;
+    struct socket_state* s;
+    if (tutp->client->utpSockState) {
+        s = tutp->client->utpSockState;
+    } else if (tutp->server->utpSockState) {
+        s = tutp->server->utpSockState;
     }
+    UTP_Close(s->s);
+    s->s = NULL;
 }
 
 void utp_overhead(void *socket, bool send, size_t count, int type)
