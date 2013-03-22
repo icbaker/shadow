@@ -29,6 +29,19 @@ void send_to(void *userdata, const byte *p, size_t len, const struct sockaddr *t
 
 void utp_read(void* transportUtp, const byte* bytes, size_t count)
 {
+    TransportUTP* tutp = (TransportUTP*) transportUtp;
+    int i = 0;
+    if (tutp->client) {
+        for (i = 0; i < count; i++) {
+            tutp->client->recvBuffer[tutp->client->recv_offset + i] = bytes[i];
+        }
+        tutp->client->recv_offset += count;
+    } else if (tutp->server) {
+        for (i = 0; i < count; i++) {
+            tutp->server->echoBuffer[tutp->server->read_offset + i] = bytes[i]
+        }
+        tutp->server->read_offset += count;
+    }
 }
 
 void utp_write(void* transportUtp, byte* bytes, size_t count)
