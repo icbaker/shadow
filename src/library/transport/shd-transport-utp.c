@@ -27,13 +27,13 @@ void send_to(void *userdata, const byte *p, size_t len, const struct sockaddr *t
     sendto(*(int*)userdata, (char*)p, len, 0, (struct sockaddr*)to, tolen);
 }
 
-void utp_read(void* socket, const byte* bytes, size_t count)
+void utp_read(void* transportUtp, const byte* bytes, size_t count)
 {
 }
 
-void utp_write(void* socket, byte* bytes, size_t count)
+void utp_write(void* transportUtp, byte* bytes, size_t count)
 {
-    TransportUTP* tutp = (TransportUTP*) socket;
+    TransportUTP* tutp = (TransportUTP*) transportUtp;
     if (tutp->client) {
         bytes = tutp->client->sendBuffer + tutp->client->utpSockState->total_sent;
         tutp->client->utpSockState->total_sent += count;
@@ -43,9 +43,9 @@ void utp_write(void* socket, byte* bytes, size_t count)
     }
 }
 
-size_t utp_get_rb_size(void* socket)
+size_t utp_get_rb_size(void* transportUtp)
 {
-    TransportUTP* tutp = (TransportUTP*) socket;
+    TransportUTP* tutp = (TransportUTP*) transportUtp;
     if (tutp->client) {
         return tutp->client->recv_offset;
     } else if (tutp->server) {
@@ -55,9 +55,9 @@ size_t utp_get_rb_size(void* socket)
     }
 }
 
-void utp_state(void* socket, int state)
+void utp_state(void* transportUtp, int state)
 {
-    TransportUTP* tutp = (TransportUTP*) socket;
+    TransportUTP* tutp = (TransportUTP*) transportUtp;
     struct socket_state* s;
     if (tutp->client) {
         tutp->client->utpSockState->state = state;
@@ -74,9 +74,9 @@ void utp_state(void* socket, int state)
     }
 }
 
-void utp_error(void* socket, int errcode)
+void utp_error(void* transportUtp, int errcode)
 {
-    TransportUTP* tutp = (TransportUTP*) socket;
+    TransportUTP* tutp = (TransportUTP*) transportUtp;
     printf("socket error: (%d) %s\n", errcode, strerror(errcode));
     struct socket_state* s;
     if (tutp->client->utpSockState) {
@@ -88,7 +88,7 @@ void utp_error(void* socket, int errcode)
     s->s = NULL;
 }
 
-void utp_overhead(void *socket, bool send, size_t count, int type)
+void utp_overhead(void *transportUtp, bool send, size_t count, int type)
 {
 }
 
