@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <shd-library.h>
+#include "utp.h"
 
 #include <bits/socket.h>
 #include <sys/types.h>
@@ -77,6 +78,7 @@ struct _TransportUTP {
     ShadowlibLogFunc log;
     TransportClient* client;
     TransportServer* server;
+    UTPGlobalState* utp_state;
 };
 
 /**

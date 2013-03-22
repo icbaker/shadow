@@ -1,7 +1,6 @@
 #include <fcntl.h>
 
 #include "shd-transport.h"
-#include "utp.h"
 
 typedef void * SOCKOPTP;
 typedef const void * CSOCKOPTP;
@@ -38,7 +37,7 @@ void utp_read(void* transportUtp, const byte* bytes, size_t count)
         tutp->client->recv_offset += count;
     } else if (tutp->server) {
         for (i = 0; i < count; i++) {
-            tutp->server->echoBuffer[tutp->server->read_offset + i] = bytes[i]
+            tutp->server->echoBuffer[tutp->server->read_offset + i] = bytes[i];
         }
         tutp->server->read_offset += count;
     }
@@ -50,9 +49,12 @@ void utp_write(void* transportUtp, byte* bytes, size_t count)
     if (tutp->client) {
         bytes = tutp->client->sendBuffer + tutp->client->utpSockState->total_sent;
         tutp->client->utpSockState->total_sent += count;
+        tutp->client->log(G_LOG_LEVEL_INFO, __FUNCTION__, "client UTP socket %i wrote %i bytes", tutp->client->utpSockState->s, count);
+        tutp->client->sent_msg = 1;
     } else if (tutp->server) {
         bytes = tutp->server->echoBuffer + tutp->server->write_offset;
         tutp->server->write_offset += count;
+        tutp->server->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server UTP socket %i wrote %i bytes", tutp->server->utpSockState->s, count);
     }
 }
 
@@ -326,15 +328,15 @@ static void _transportutp_clientReadable(TransportClient* tc, gint socketd) {
 
     if(!tc->is_done) {
         ssize_t b = 0;
-        while(tc->amount_sent-tc->recv_offset > 0 &&
-                (b = recvfrom(socketd, tc->recvBuffer+tc->recv_offset, tc->amount_sent-tc->recv_offset, 0, NULL, NULL)) > 0) {
+        while(tc->utpSockState->total_sent-tc->recv_offset > 0 &&
+                (b = recvfrom(socketd, tc->recvBuffer+tc->recv_offset, tc->utpSockState->total_sent-tc->recv_offset, 0, NULL, NULL)) > 0) {
             tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i read %i bytes: '%s'", socketd, b, tc->recvBuffer+tc->recv_offset);
             tc->recv_offset += b;
         }
 
-        if(tc->recv_offset >= tc->amount_sent) {
+        if(tc->recv_offset >= tc->utpSockState->total_sent) {
             tc->is_done = 1;
-            if(memcmp(tc->sendBuffer, tc->recvBuffer, tc->amount_sent)) {
+            if(memcmp(tc->sendBuffer, tc->recvBuffer, tc->utpSockState->total_sent)) {
                 tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "inconsistent transmission received!");
             } else {
                 tc->log(G_LOG_LEVEL_MESSAGE, __FUNCTION__, "consistent transmission received!");
@@ -346,7 +348,7 @@ static void _transportutp_clientReadable(TransportClient* tc, gint socketd) {
 
             close(socketd);
         } else {
-            tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "transmission progress: %i of %i bytes", tc->recv_offset, tc->amount_sent);
+            tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "transmission progress: %i of %i bytes", tc->recv_offset, tc->utpSockState->total_sent);
         }
     }
 }
@@ -403,11 +405,9 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
         UTP_Write(tc->utpSockState->s, sizeof(tc->sendBuffer));
-        tc->sent_msg = 1;
-        tc->amount_sent += b;
-        tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i wrote %i bytes: '%s'", socketd, b, tc->sendBuffer);
+        tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "client UTP socket %i asked to write %i bytes: '%s'", socketd, sizeof(tc->sendBuffer));
 
-        if(tc->amount_sent >= sizeof(tc->sendBuffer)) {
+        if(tc->utpSockState->total_sent >= sizeof(tc->sendBuffer)) {
             /* we sent everything, so stop trying to write */
             struct epoll_event ev;
             ev.events = EPOLLIN;
@@ -429,15 +429,6 @@ static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
     gint write_size = ts->read_offset - ts->write_offset;
     if(write_size > 0) {
         UTP_Write(ts->utpSockState->s, write_size);
-        if(bwrote == 0) {
-            if(epoll_ctl(ts->epolld, EPOLL_CTL_DEL, socketd, NULL) == -1) {
-                ts->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
-            }
-        } else if(bwrote > 0) {
-            ts->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server socket %i wrote %i bytes", socketd, (gint)bwrote);
-            ts->write_offset += bwrote;
-            write_size -= bwrote;
-        }
     }
 
     if(write_size == 0) {
