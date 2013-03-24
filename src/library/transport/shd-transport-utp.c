@@ -73,6 +73,7 @@ size_t utp_get_rb_size(void* transportUtp)
 void utp_state(void* transportUtp, int state)
 {
     TransportUTP* tutp = (TransportUTP*) transportUtp;
+    UTP_UpdateGlobalState(tutp->utp_state);
     struct socket_state* s;
     if (tutp->client) {
         tutp->client->utpSockState->state = state;
@@ -92,6 +93,7 @@ void utp_state(void* transportUtp, int state)
 void utp_error(void* transportUtp, int errcode)
 {
     TransportUTP* tutp = (TransportUTP*) transportUtp;
+    UTP_UpdateGlobalState(tutp->utp_state);
     printf("socket error: (%d) %s\n", errcode, strerror(errcode));
     struct socket_state* s;
     if (tutp->client->utpSockState) {
@@ -246,6 +248,9 @@ TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
     TransportUTP* tutp = g_new0(TransportUTP, 1);
     tutp->log = log;
 
+    tutp->utp_state = g_new0(struct UTPGlobalState, 1);
+    UTP_UpdateGlobalState(tutp->utp_state);
+
     gchar* mode = argv[0];
     gboolean isError = FALSE;
 
@@ -320,6 +325,7 @@ void transportutp_free(TransportUTP* tutp) {
         g_free(tutp->server);
     }
 
+    g_free(tutp->utp_state);
     g_free(tutp);
 }
 

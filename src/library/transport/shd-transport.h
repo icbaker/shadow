@@ -78,7 +78,7 @@ struct _TransportUTP {
     ShadowlibLogFunc log;
     TransportClient* client;
     TransportServer* server;
-    UTPGlobalState* utp_state;
+    struct UTPGlobalState* utp_state;
 };
 
 /**
