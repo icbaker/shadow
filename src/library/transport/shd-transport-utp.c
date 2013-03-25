@@ -248,7 +248,7 @@ TransportUTP* transportutp_new(ShadowlibLogFunc log, int argc, char* argv[]) {
     TransportUTP* tutp = g_new0(TransportUTP, 1);
     tutp->log = log;
 
-    tutp->utp_state = g_new0(struct UTPGlobalState, 1);
+    tutp->utp_state = UTP_AllocGlobalState();
     UTP_UpdateGlobalState(tutp->utp_state);
 
     gchar* mode = argv[0];
@@ -325,7 +325,7 @@ void transportutp_free(TransportUTP* tutp) {
         g_free(tutp->server);
     }
 
-    g_free(tutp->utp_state);
+    UTP_FreeGlobalState(tutp->utp_state);
     g_free(tutp);
 }
 
