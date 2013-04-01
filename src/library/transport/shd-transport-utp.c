@@ -338,6 +338,7 @@ static void _transportutp_clientReadable(TransportClient* tc, gint socketd) {
                 (b = recvfrom(socketd, tc->recvBuffer+tc->recv_offset, tc->utpSockState->total_sent-tc->recv_offset, 0, NULL, NULL)) > 0) {
             tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "client socket %i read %i bytes: '%s'", socketd, b, tc->recvBuffer+tc->recv_offset);
             tc->recv_offset += b;
+            UTP_IsIncomingUTP(NULL, &send_to, &socketd, tc->recvBuffer+tc->recv_offset, b, (const struct sockaddr*)&tc->serverIP, sizeof(tc->serverIP));
         }
 
         if(tc->recv_offset >= tc->utpSockState->total_sent) {
@@ -377,6 +378,7 @@ static void _transportutp_serverReadable(TransportServer* ts, gint socketd) {
             ts->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server socket %i read %i bytes", socketd, (gint)bread);
             ts->read_offset += bread;
             read_size -= bread;
+            UTP_IsIncomingUTP(NULL, &send_to, &socketd, ts->echoBuffer+ts->read_offset, bread, (struct sockaddr*)&ts->address, sizeof(ts->address));
 
             struct epoll_event ev;
             ev.events = EPOLLIN|EPOLLOUT;
