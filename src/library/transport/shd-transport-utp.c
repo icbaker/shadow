@@ -47,12 +47,12 @@ void utp_write(void* transportUtp, byte* bytes, size_t count)
 {
     TransportUTP* tutp = (TransportUTP*) transportUtp;
     if (tutp->client) {
-        bytes = tutp->client->sendBuffer + tutp->client->utpSockState->total_sent;
+        memcpy(bytes, tutp->client->sendBuffer + tutp->client->utpSockState->total_sent, count);
         tutp->client->utpSockState->total_sent += count;
         tutp->client->log(G_LOG_LEVEL_INFO, __FUNCTION__, "client UTP socket %i wrote %i bytes", tutp->client->utpSockState->s, count);
         tutp->client->sent_msg = 1;
     } else if (tutp->server) {
-        bytes = tutp->server->echoBuffer + tutp->server->write_offset;
+        memcpy(bytes, tutp->server->echoBuffer + tutp->server->write_offset, count);
         tutp->server->write_offset += count;
         tutp->server->log(G_LOG_LEVEL_INFO, __FUNCTION__, "server UTP socket %i wrote %i bytes", tutp->server->utpSockState->s, count);
     }
