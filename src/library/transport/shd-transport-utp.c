@@ -12,9 +12,6 @@ int make_socket(const struct sockaddr *addr, socklen_t addrlen)
     int s = socket(addr->sa_family, SOCK_DGRAM, 0);
     if (s == -1) return s;
 
-    // Mark to hold a couple of megabytes
-    int size = 2 * 1024 * 1024;
-
     // make socket non blocking
     int flags = fcntl(s, F_GETFL, 0);
     fcntl(s, F_SETFL, flags | O_NONBLOCK);
@@ -185,9 +182,9 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     if (bind(socketd, &sin, sizeof(sin)) < 0) {
         char str[20];
         printf("UDP port bind failed %s: (%d) %s\n",
-               inet_ntop(&sin.sin_family, (struct sockaddr*)&sin, str, sizeof(str)), errno, strerror(errno));
+               inet_ntop(sin.sin_family, (struct sockaddr*)&sin, str, sizeof(str)), errno, strerror(errno));
         close(socketd);
-        return -1;
+        return NULL;
     }
 
     struct socket_state s;
@@ -393,7 +390,7 @@ static void _transportutp_serverReadable(TransportServer* ts, gint socketd) {
 }
 
 /* fills buffer with size random characters */
-static void _transportutp_fillCharBuffer(gchar* buffer, gint size) {
+static void _transportutp_fillCharBuffer(byte* buffer, gint size) {
     for(gint i = 0; i < size; i++) {
         gint n = rand() % 26;
         buffer[i] = 'a' + n;
@@ -409,8 +406,6 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
         server.sin_family = AF_INET;
         server.sin_addr.s_addr = tc->serverIP;
         server.sin_port = htons(TRANSPORT_SERVER_PORT);
-
-        socklen_t len = sizeof(server);
 
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
@@ -431,8 +426,6 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
 
 static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
     ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
-
-    socklen_t len = sizeof(ts->address);
 
     /* echo it back to the client on the same sd,
      * also taking care of data that is still hanging around from previous reads. */
