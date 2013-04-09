@@ -167,6 +167,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     tc->epolld = epolld;
     tc->serverIP = serverIPAddress;
     tc->log = log;
+    tc->utpSockState = &s;
     return tc;
 }
 
@@ -235,6 +236,7 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     ts->listend = socketd;
     ts->epolld = epolld;
     ts->log = log;
+    ts->utpSockState = &s;
     return ts;
 }
 
