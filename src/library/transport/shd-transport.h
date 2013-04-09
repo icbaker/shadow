@@ -19,7 +19,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-#define BUFFERSIZE 4
+#define BUFFERSIZE 200
 #define TRANSPORT_SERVER_PORT 9999
 #define MAX_EVENTS 10
 
