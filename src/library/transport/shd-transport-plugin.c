@@ -40,9 +40,7 @@ void transportplugin_new(int argc, char* argv[]) {
     transportstate.shadowlibFuncs.log(G_LOG_LEVEL_DEBUG, __FUNCTION__,
             "transportplugin_new called");
 
-    const char* USAGE = "Transport USAGE: 'utp client serverIP', 'utp server', 'utp loopback', 'utp socketpair',"
-            "** clients and servers must be paired together, but loopback, socketpair,"
-            "and pipe modes stand on their own.";
+    const char* USAGE = "Transport USAGE: 'utp client serverIP', 'utp server'";
 
     /* 0 is the plugin name, 1 is the protocol */
     if(argc < 2) {
@@ -69,7 +67,7 @@ void transportplugin_new(int argc, char* argv[]) {
 }
 
 void transportplugin_free() {
-    transportstate.shadowlibFuncs.log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "echoplugin_free called");
+    transportstate.shadowlibFuncs.log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "transportplugin_free called");
 
     /* call the correct version depending on what we are running */
     switch(transportstate.protocol) {
@@ -87,7 +85,7 @@ void transportplugin_free() {
 }
 
 void transportplugin_ready() {
-    transportstate.shadowlibFuncs.log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "echoplugin_ready called");
+    transportstate.shadowlibFuncs.log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "transportplugin_ready called");
 
     /* call the correct version depending on what we are running */
     switch(transportstate.protocol) {
