@@ -401,12 +401,6 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
     if(!tc->sent_msg) {
         tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to socket %i", socketd);
 
-        struct sockaddr_in server;
-        memset(&server, 0, sizeof(server));
-        server.sin_family = AF_INET;
-        server.sin_addr.s_addr = tc->serverIP;
-        server.sin_port = htons(TRANSPORT_SERVER_PORT);
-
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
         UTP_Write(tc->utpSockState->s, sizeof(tc->sendBuffer));
