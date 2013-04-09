@@ -203,9 +203,6 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     };
     UTP_SetCallbacks(s.s, &utp_callbacks, &s);
 
-    printf("Server: connecting UTP socket %p\n", s.s);
-    UTP_Connect(s.s);
-
     /* create an epoll so we can wait for IO events */
     gint epolld = epoll_create(1);
     if(epolld == -1) {
