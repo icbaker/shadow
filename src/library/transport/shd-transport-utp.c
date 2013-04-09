@@ -416,11 +416,12 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
 }
 
 static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
-    ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to read socket %i", socketd);
+    ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to socket %i", socketd);
 
     /* echo it back to the client on the same sd,
      * also taking care of data that is still hanging around from previous reads. */
     gint write_size = ts->read_offset - ts->write_offset;
+    ts->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "Write size is: %d", write_size);
     if(write_size > 0) {
         UTP_Write(ts->utpSockState->s, write_size);
     }
@@ -438,6 +439,8 @@ static void _transportutp_serverWritable(TransportServer* ts, gint socketd) {
 
 void transportutp_ready(TransportUTP* tutp) {
     g_assert(tutp);
+
+    tutp->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "Entered transportutp_ready");
 
     if(tutp->client) {
         struct epoll_event events[MAX_EVENTS];
