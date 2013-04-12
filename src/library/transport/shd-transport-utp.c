@@ -400,7 +400,11 @@ static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
 
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
-        UTP_Write(tc->utpSockState->s, sizeof(tc->sendBuffer));
+        if(!UTP_Write(tc->utpSockState->s, sizeof(tc->sendBuffer))) {
+            tc->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error connecting UTP socket %i", tc->utpSockState->s);
+            tc->log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Closing underlying UDP socket %i", socketd);
+            close(socketd);
+        }
         tc->log(G_LOG_LEVEL_INFO, __FUNCTION__, "client UTP socket %i asked to write %i bytes: '%s'", socketd, sizeof(tc->sendBuffer));
 
         if(tc->utpSockState->total_sent >= sizeof(tc->sendBuffer)) {
