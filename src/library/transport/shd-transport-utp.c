@@ -7,10 +7,13 @@ typedef const void * CSOCKOPTP;
 
 int g_send_limit = 50 * 1024 * 1024;
 
-int make_socket(const struct sockaddr *addr, socklen_t addrlen)
+int make_socket(ShadowlibLogFunc log)
 {
-    int s = socket(addr->sa_family, SOCK_DGRAM, 0);
-    if (s == -1) return s;
+    int s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s == -1) {
+        log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error creating UDP socket");
+        return s;
+    }
 
     // make socket non blocking
     int flags = fcntl(s, F_GETFL, 0);
@@ -109,13 +112,17 @@ void utp_overhead(void *transportUtp, bool send, size_t count, int type)
 static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t serverIPAddress) {
     g_assert(log);
 
-    struct sockaddr_in sin;
+    int socketd = make_socket(log);
+    if (socketd == -1) {
+        return NULL;
+    }
+    log(G_LOG_LEVEL_INFO, __FUNCTION__, "created UDP socket %p", socketd);
 
+    struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = serverIPAddress;
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
-    int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
     struct socket_state s;
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
@@ -171,15 +178,20 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
 static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t bindIPAddress) {
     g_assert(log);
 
-    struct sockaddr_in sin;
+    int socketd = make_socket(log);
+    if (socketd == -1) {
+        return NULL;
+    }
+    log(G_LOG_LEVEL_INFO, __FUNCTION__, "created UDP socket %p", socketd);
 
+    struct sockaddr_in sin;
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = bindIPAddress;
     sin.sin_port = htons(TRANSPORT_SERVER_PORT);
-    int socketd = make_socket((const struct sockaddr*)&sin, sizeof(sin));
 
-    if (bind(socketd, &sin, sizeof(sin)) < 0) {
+    gint result = bind(socketd, &sin, sizeof(sin));
+    if (result < 0) {
         char str[20];
         printf("UDP port bind failed %s: (%d) %s\n",
                inet_ntop(sin.sin_family, (struct sockaddr*)&sin, str, sizeof(str)), errno, strerror(errno));
@@ -217,7 +229,7 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     ev.data.fd = socketd;
 
     /* start watching out socket */
-    gint result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
+    result = epoll_ctl(epolld, EPOLL_CTL_ADD, socketd, &ev);
     if(result == -1) {
         log(G_LOG_LEVEL_WARNING, __FUNCTION__, "Error in epoll_ctl");
         close(epolld);
