@@ -457,6 +457,7 @@ void transportutp_ready(TransportUTP* tutp) {
     g_assert(tutp);
 
     tutp->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "Entered transportutp_ready");
+    UTP_UpdateGlobalState(tutp->utp_state);
 
     if(tutp->client) {
         struct epoll_event events[MAX_EVENTS];
