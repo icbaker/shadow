@@ -121,7 +121,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
-    printf("Client: creating UTP socket %p\n", s.s);
+    log(G_LOG_LEVEL_INFO, __FUNCTION__, "created UTP socket %p", s.s);
 
     struct UTPFunctionTable utp_callbacks = {
         &utp_read,
@@ -133,7 +133,7 @@ static TransportClient* _transportutp_newClient(ShadowlibLogFunc log, in_addr_t 
     };
     UTP_SetCallbacks(s.s, &utp_callbacks, &s);
 
-    printf("Client: connecting UTP socket %p\n", s.s);
+    log(G_LOG_LEVEL_INFO, __FUNCTION__, "connecting UTP socket %p\n", s.s);
     UTP_Connect(s.s);
 
     /* create an epoll so we can wait for IO events */
@@ -191,7 +191,7 @@ static TransportServer* _transportutp_newServer(ShadowlibLogFunc log, in_addr_t 
     s.s = UTP_Create(&send_to, &socketd, (const struct sockaddr*)&sin, sizeof(sin));
     UTP_SetSockopt(s.s, SO_SNDBUF, 100*300);
     s.state = 0;
-    printf("Server: creating UTP socket %p\n", s.s);
+    log(G_LOG_LEVEL_INFO, __FUNCTION__, "creating UTP socket %p", s.s);
 
     struct UTPFunctionTable utp_callbacks = {
         &utp_read,
@@ -396,7 +396,7 @@ static void _transportutp_fillCharBuffer(byte* buffer, gint size) {
 
 static void _transportutp_clientWritable(TransportClient* tc, gint socketd) {
     if(!tc->sent_msg) {
-        tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to socket %i", socketd);
+        tc->log(G_LOG_LEVEL_DEBUG, __FUNCTION__, "trying to write to UDP socket %i", socketd);
 
         _transportutp_fillCharBuffer(tc->sendBuffer, sizeof(tc->sendBuffer)-1);
 
